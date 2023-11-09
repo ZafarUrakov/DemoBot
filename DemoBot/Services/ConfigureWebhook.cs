@@ -33,7 +33,7 @@ namespace DemoBot.Services
 
             var botClient = scope.ServiceProvider.GetRequiredService<ITelegramBotClient>();
 
-            var webhookAddress = $@"{botConfiguration.HostAdress}/bot/{botConfiguration.Token}";
+            var webhookAddress = $"{botConfiguration.HostAdress}/bot/{botConfiguration.Token}";
 
             this.logger.LogInformation("Setting webhook");
 
