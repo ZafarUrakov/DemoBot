@@ -35,17 +35,16 @@ namespace DemoBot.Services
 
             var webhookAddress = $"{botConfiguration.HostAdress}/bot/{botConfiguration.Token}";
 
-            this.logger.LogInformation("Setting webhook");
+            this.logger.LogInformation($"Setting webhook to: {webhookAddress}");
 
-            await botClient.SendTextMessageAsync(
-                chatId: 1924521160,
-                text: "Webhook starting work..");
+                await botClient.SetWebhookAsync(
+                        url: webhookAddress,
+                        allowedUpdates: Array.Empty<UpdateType>(),
+                        cancellationToken: cancellationToken);
 
-            await botClient.SetWebhookAsync(
-                    url: webhookAddress,
-                    allowedUpdates: Array.Empty<UpdateType>(),
-                    cancellationToken: cancellationToken);
+                this.logger.LogInformation("Webhook set successfully");
         }
+
 
         public async Task StopAsync(CancellationToken cancellationToken)
         {
