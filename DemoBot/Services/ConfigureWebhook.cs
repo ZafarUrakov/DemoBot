@@ -29,13 +29,15 @@ namespace DemoBot.Services
 
         public async Task StartAsync(CancellationToken cancellationToken)
         {
-            using var scope = this.serviceProvider.CreateScope();
+            try
+            {
+                using var scope = this.serviceProvider.CreateScope();
 
-            var botClient = scope.ServiceProvider.GetRequiredService<ITelegramBotClient>();
+                var botClient = scope.ServiceProvider.GetRequiredService<ITelegramBotClient>();
 
-            var webhookAddress = $"{botConfiguration.HostAdress}/bot/{botConfiguration.Token}";
+                var webhookAddress = $"https://botteleg-b93990cfbdf4.herokuapp.com/ bot/{botConfiguration.Token}";
 
-            this.logger.LogInformation($"Setting webhook to: {webhookAddress}");
+                this.logger.LogInformation($"Setting webhook to: {webhookAddress}");
 
                 await botClient.SetWebhookAsync(
                         url: webhookAddress,
@@ -43,6 +45,11 @@ namespace DemoBot.Services
                         cancellationToken: cancellationToken);
 
                 this.logger.LogInformation("Webhook set successfully");
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
         }
 
 
