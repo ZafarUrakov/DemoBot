@@ -5,6 +5,8 @@ using Telegram.Bot.Exceptions;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types;
 using Telegram.Bot;
+using static System.Net.Mime.MediaTypeNames;
+using DemoBot.Models;
 
 namespace DemoBot.Services
 {
@@ -72,9 +74,40 @@ namespace DemoBot.Services
         {
             this.logger.LogInformation($"A message has arrieved: {message.Type}");
 
-            await this.telegramBotClient.SendTextMessageAsync(
-                chatId: message.Chat.Id,
-                text: "A message has arrieved to the bot.");
+            if(message.Text is not null)
+            {
+                if(IsPhoneNumber((message.Text)))
+                {
+                    await this.telegramBotClient.SendTextMessageAsync(
+                        chatId: message.Chat.Id,
+                        text: $"Thank you {message.Chat.FirstName}, you will receive a progress report.");
+
+                    Student student = new Student
+                    {
+                        Id = Guid.NewGuid(),
+                        PhoneNumber = message.Text,
+                        TelegramId = message.Chat.Id
+                    };
+                }
+                else
+                {
+                    await this.telegramBotClient.SendTextMessageAsync(
+                        chatId: message.Chat.Id,
+                        text: $"Welcome {message.Chat.FirstName} {message.Chat.LastName}, please send us the phone number. ");
+                }
+            }
+
+
+        }
+
+        private bool IsPhoneNumber(string text)
+        {
+            if (text.StartsWith("+") || long.TryParse(text, out _))
+            {
+                return true; 
+            }
+
+            return false; 
         }
     }
 }

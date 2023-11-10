@@ -1,3 +1,4 @@
+using DemoBot.Brokers;
 using DemoBot.Models;
 using DemoBot.Services;
 using Microsoft.AspNetCore.Builder;
@@ -38,6 +39,8 @@ namespace DemoBot
                 new TelegramBotClient(BotConfiguration.Token, httpClient));
 
             services.AddScoped<TelegramBotService>();
+            services.AddDbContext<StudentBroker>();
+            services.AddDbContext<BotBroker>();
 
             services.AddControllers().AddNewtonsoftJson();
 
@@ -46,14 +49,17 @@ namespace DemoBot
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
-            if (env.IsDevelopment())
-            {
-                app.UseDeveloperExceptionPage();
-            }
+            app.UseDeveloperExceptionPage();
+            app.UseHttpsRedirection();
+            app.UseExceptionHandler("/Home/Error");
+            app.UseHsts();
+
+            app.UseHttpsRedirection();
+            app.UseStaticFiles();
 
             app.UseRouting();
 
-            app.UseCors();
+            app.UseAuthorization();
 
             app.UseEndpoints(endpoints =>
             {
@@ -64,6 +70,10 @@ namespace DemoBot
                     pattern: $"bot/{token}",
                     new { controller = "Webhook", action = "Post" });
                 endpoints.MapControllers();
+
+                endpoints.MapControllerRoute(
+                    name: "default",
+                    pattern: "{controller=Home}/{action=Index}/{id?}");
             });
         }
     }
