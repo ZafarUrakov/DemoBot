@@ -93,7 +93,7 @@ namespace DemoBot.Services
                 {
                     await this.telegramBotClient.SendTextMessageAsync(
                         chatId: message.Chat.Id,
-                        text: $"Welcome {message.Chat.FirstName} {message.Chat.LastName}, please send us the phone number. ");
+                        text: $"Welcome {message.Chat.FirstName} {message.Chat.LastName}, please send us the phone number.");
                 }
             }
 
