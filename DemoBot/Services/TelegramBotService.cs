@@ -85,6 +85,10 @@ namespace DemoBot.Services
             {
                 var audioFile = await telegramBotClient.GetFileAsync(message.Audio.FileId);
 
+                await this.telegramBotClient.SendTextMessageAsync(
+                                       chatId: message.Chat.Id,
+                                       text: $"Ok {message.Audio}");
+
                 using (var httpClient = new HttpClient())
                 using (var responseStream = await httpClient.GetStreamAsync(audioFile.FilePath))
                 {
