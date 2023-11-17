@@ -97,7 +97,7 @@ namespace DemoBot.Services
                         await wavStream.CopyToAsync(fileStream);
                     }
 
-                    var config = SpeechConfig.FromSubscription("YourSubscriptionKey", "YourServiceRegion");
+                    var config = SpeechConfig.FromSubscription("0eee4723c1a9413b949e940688aea53f", "koreacentral");
 
                     string language = "en-US";
                     string topic = "your own topic";
