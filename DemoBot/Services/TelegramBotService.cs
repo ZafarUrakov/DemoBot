@@ -7,6 +7,12 @@ using Telegram.Bot.Types;
 using Telegram.Bot;
 using static System.Net.Mime.MediaTypeNames;
 using DemoBot.Models;
+using System.IO;
+using NAudio.Wave;
+using System.Net.Http;
+using Microsoft.CognitiveServices.Speech.Audio;
+using Microsoft.CognitiveServices.Speech;
+using Newtonsoft.Json;
 
 namespace DemoBot.Services
 {
@@ -70,44 +76,162 @@ namespace DemoBot.Services
                 text: $"{callbackQuery.Data}");
         }
 
+
         private async ValueTask BotOnMessageRecieved(Message message)
         {
-            this.logger.LogInformation($"A message has arrieved: {message.Type}");
+            this.logger.LogInformation($"A message has arrived: {message.Type}");
 
-            if(message.Text is not null)
+            if (message.Audio is not null)
             {
-                if(IsPhoneNumber((message.Text)))
-                {
-                    await this.telegramBotClient.SendTextMessageAsync(
-                        chatId: message.Chat.Id,
-                        text: $"Thank you {message.Chat.FirstName}, you will receive a progress report.");
+                var audioFile = await telegramBotClient.GetFileAsync(message.Audio.FileId);
 
-                    Student student = new Student
+                using (var httpClient = new HttpClient())
+                using (var responseStream = await httpClient.GetStreamAsync(audioFile.FilePath))
+                {
+                    var wavStream = AudioConverter.ConvertToWav(responseStream);
+
+                    var convertedWavFilePath = "converted.wav";
+
+                    using (var fileStream = new FileStream(convertedWavFilePath, FileMode.Create))
                     {
-                        Id = Guid.NewGuid(),
-                        PhoneNumber = message.Text,
-                        TelegramId = message.Chat.Id
+                        await wavStream.CopyToAsync(fileStream);
+                    }
+
+                    var config = SpeechConfig.FromSubscription("YourSubscriptionKey", "YourServiceRegion");
+
+                    string language = "en-US";
+                    string topic = "your own topic";
+
+                    var audioConfig = AudioConfig.FromWavFileInput(convertedWavFilePath);
+                    var speechRecognizer = new SpeechRecognizer(config, language.Replace("_", "-"), audioConfig);
+
+                    var connection = Connection.FromRecognizer(speechRecognizer);
+
+                    var phraseDetectionConfig = new
+                    {
+                        enrichment = new
+                        {
+                            pronunciationAssessment = new
+                            {
+                                referenceText = "",
+                                gradingSystem = "HundredMark",
+                                granularity = "Word",
+                                dimension = "Comprehensive",
+                                enableMiscue = "False",
+                                enableProsodyAssessment = "True"
+                            },
+                            contentAssessment = new
+                            {
+                                topic = topic
+                            }
+                        }
                     };
-                }
-                else
-                {
-                    await this.telegramBotClient.SendTextMessageAsync(
-                        chatId: message.Chat.Id,
-                        text: $"Welcome {message.Chat.FirstName} {message.Chat.LastName}, please send us the phone number.");
+                    connection.SetMessageProperty("speech.context", "phraseDetection", JsonConvert.SerializeObject(phraseDetectionConfig));
+
+                    var phraseOutputConfig = new
+                    {
+                        format = "Detailed",
+                        detailed = new
+                        {
+                            options = new[]
+                            {
+                                "WordTimings",
+                                "PronunciationAssessment",
+                                "ContentAssessment",
+                                "SNR",
+                            }
+                        }
+                    };
+                    connection.SetMessageProperty("speech.context", "phraseOutput", JsonConvert.SerializeObject(phraseOutputConfig));
+
+                    var done = false;
+                    var fullRecognizedText = "";
+
+                    speechRecognizer.SessionStopped += (s, e) =>
+                    {
+                        Console.WriteLine("Closing on {0}", e);
+                        done = true;
+                    };
+
+                    speechRecognizer.Canceled += (s, e) =>
+                    {
+                        Console.WriteLine("Closing on {0}", e);
+                        done = true;
+                    };
+
+                    connection.MessageReceived += async (s, e) =>
+                    {
+                        if (e.Message.IsTextMessage())
+                        {
+                            var messageText = e.Message.GetTextMessage();
+                            var json = Newtonsoft.Json.Linq.JObject.Parse(messageText);
+                            if (json.ContainsKey("NBest"))
+                            {
+                                var nBest = json["NBest"][0];
+                                if (json["NBest"][0]["Display"].ToString().Trim().Length > 1)
+                                {
+                                    var recognizedText = json["DisplayText"];
+                                    fullRecognizedText += $" {recognizedText}";
+                                    Console.WriteLine($"Pronunciation Assessment Results for: {recognizedText}");
+
+                                    var accuracyScore = nBest["PronunciationAssessment"]["AccuracyScore"].ToString();
+                                    var fluencyScore = nBest["PronunciationAssessment"]["FluencyScore"].ToString();
+                                    var prosodyScore = nBest["PronunciationAssessment"]["ProsodyScore"].ToString();
+                                    var completenessScore = nBest["PronunciationAssessment"]["CompletenessScore"].ToString();
+                                    var pronScore = nBest["PronunciationAssessment"]["PronScore"].ToString();
+
+                                    await this.telegramBotClient.SendTextMessageAsync(
+                                        chatId: message.Chat.Id,
+                                        text:
+                                        $"AccuracyScore {accuracyScore}\n" +
+                                        $"FluencyScore {fluencyScore}\n" +
+                                        $"ProsodyScore {prosodyScore}\n" +
+                                        $"CompletenessScore {completenessScore}" +
+                                        $"PronScore {pronScore}");
+                                }
+                                else
+                                {
+                                    Console.WriteLine($"Content Assessment Results for: {fullRecognizedText}");
+                                }
+                                string jsonText = JsonConvert.SerializeObject(json, Newtonsoft.Json.Formatting.Indented, new JsonSerializerSettings());
+                                Console.WriteLine(jsonText);
+                            }
+                        }
+                    };
+
+                    await speechRecognizer.StartContinuousRecognitionAsync().ConfigureAwait(false);
+
+                    while (!done)
+                    {
+                        await Task.Delay(1000);
+                    }
+
+                    await speechRecognizer.StopContinuousRecognitionAsync().ConfigureAwait(false);
                 }
             }
-
-
         }
-
-        private bool IsPhoneNumber(string text)
+        public static class AudioConverter
         {
-            if (text.StartsWith("+") || long.TryParse(text, out _))
+            public static Stream ConvertToWav(Stream audioStream)
             {
-                return true; 
-            }
+                using (var mp3Reader = new Mp3FileReader(audioStream))
+                {
+                    var wavStream = new MemoryStream();
 
-            return false; 
+                    using (var waveWriter = new WaveFileWriter(wavStream, mp3Reader.WaveFormat))
+                    {
+                        byte[] buffer = new byte[4096];
+                        int bytesRead;
+                        while ((bytesRead = mp3Reader.Read(buffer, 0, buffer.Length)) > 0)
+                        {
+                            waveWriter.Write(buffer, 0, bytesRead);
+                        }
+                    }
+
+                    wavStream.Position = 0;
+                    return wavStream;
+                }
+            }
         }
     }
 }
