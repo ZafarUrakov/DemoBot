@@ -81,13 +81,11 @@ namespace DemoBot.Services
         {
             this.logger.LogInformation($"A message has arrived: {message.Type}");
 
-            if (message.Audio is not null)
-            {
                 var audioFile = await telegramBotClient.GetFileAsync(message.Audio.FileId);
 
                 await this.telegramBotClient.SendTextMessageAsync(
                                        chatId: message.Chat.Id,
-                                       text: $"Ok");
+                                       text: $"Ok {message.Audio}");
 
                 using (var httpClient = new HttpClient())
                 using (var responseStream = await httpClient.GetStreamAsync(audioFile.FilePath))
@@ -211,7 +209,6 @@ namespace DemoBot.Services
                     }
 
                     await speechRecognizer.StopContinuousRecognitionAsync().ConfigureAwait(false);
-                }
             }
         }
         public static class AudioConverter
