@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using System.Threading.Tasks;
 using System;
 using Telegram.Bot.Exceptions;
