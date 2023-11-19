@@ -74,9 +74,9 @@ namespace DemoBot.Services
         {
             this.logger.LogInformation($"A message has arrieved: {message.Type}");
 
-            if(message.Text is not null)
+            if (message.Text is not null)
             {
-                if(IsPhoneNumber((message.Text)))
+                if (IsPhoneNumber((message.Text)))
                 {
                     await this.telegramBotClient.SendTextMessageAsync(
                         chatId: message.Chat.Id,
@@ -104,10 +104,10 @@ namespace DemoBot.Services
         {
             if (text.StartsWith("+") || long.TryParse(text, out _))
             {
-                return true; 
+                return true;
             }
 
-            return false; 
+            return false;
         }
     }
 }
